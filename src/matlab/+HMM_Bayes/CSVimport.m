@@ -10,53 +10,49 @@ function trackData = CSVimport(csvPath,trackStr,xStr,yStr,zStr,timeStr,timeMulti
         umZmultiplier = 1;
     end
     
-    raw = csvread(csvPath,1,0);
-    fH = fopen(csvPath,'rt');
-    l = fgetl(fH);
-    fclose(fH);
-    tok = regexpi(l,',','split');
+    raw = readtable(csvPath);
+    if (sum(ismissing(raw(1,:)))>size(raw,2)*0.75)
+        raw = raw(2:end,:); % Trackmate has extra rows at the top
+    end
 
     %% Convert data into input to HMM_Bayes.Bayes
-    trackIDcol = strcmpi(tok,trackStr);
-    if (~any(trackIDcol))
+    if (isempty(raw.(trackStr)))
         error('Cannont find Track column');
     end
-    xCol = strcmpi(tok,xStr);
-    if (~any(xCol))
+    if (isempty(raw.(xStr)))
         error('Cannont find X column');
     end
-    yCol = strcmpi(tok,yStr);
-    if (~any(yCol))
+    if (isempty(raw.(yStr)))
         error('Cannont find Y column');
     end
-    zCol = strcmpi(tok,zStr);
-    if (~any(zCol))
+    if (isempty(raw.(zStr)))
         error('Cannont find Z column');
     end
-    timeCol = strcmpi(tok,timeStr);
-    if (~any(timeCol))
+    if (isempty(raw.(timeStr)))
         error('Cannont find Time column');
     end
     
-    trackVals = raw(:,trackIDcol);
-    xVals = raw(:,xCol).*umXYmultiplier;
-    yVals = raw(:,yCol).*umXYmultiplier;
-    zVals = raw(:,zCol).*umZmultiplier;
-    timeVals = raw(:,timeCol);
+    trackVals = raw.(trackStr);
+    xVals = raw.(xStr) .* umXYmultiplier;
+    yVals = raw.(yStr) .* umXYmultiplier;
+    zVals = raw.(zStr) .* umZmultiplier;
+    timeVals = raw.(timeStr);
 
     trackIDs = unique(trackVals);
     
     %% Make a structure that holds each track data
     trackData = struct('trackID',[],'pos_xyz',[],'times',[],'frames',[],'steps_xyz',[]);
-    trackData(trackIDs(end)).trackID = trackIDs(end);
+    trackData(length(trackIDs)).trackID = trackIDs(end);
     
-    for i=1:length(trackData)
-        trackData(i).trackID = trackIDs(i);
-        mask = trackVals==trackIDs(i);
+    for outTrackID=1:length(trackData)
+        inTrackID = trackIDs(outTrackID);
+
+        trackData(outTrackID).trackID = inTrackID;
+        mask = trackVals == inTrackID;
         
-        trackData(i).pos_xyz = [xVals(mask),yVals(mask),zVals(mask)];
-        trackData(i).steps_xyz = trackData(i).pos_xyz(2:end,:)-trackData(i).pos_xyz(1:end-1,:);
-        trackData(i).frames = timeVals(mask);
-        trackData(i).times = trackData(i).frames .* timeMultiplier;
+        trackData(outTrackID).pos_xyz = [xVals(mask),yVals(mask),zVals(mask)];
+        trackData(outTrackID).steps_xyz = trackData(outTrackID).pos_xyz(2:end,:)-trackData(outTrackID).pos_xyz(1:end-1,:);
+        trackData(outTrackID).frames = timeVals(mask);
+        trackData(outTrackID).times = trackData(outTrackID).frames .* timeMultiplier;
     end
 end
